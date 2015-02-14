@@ -1,0 +1,5 @@
+.DS_Store
+.*sw[op]
+*.py[co]
+*.egg-info
+server.pem
