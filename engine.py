@@ -100,13 +100,10 @@ class Engine(object):
                     os.makedirs(output_path)
                     os.makedirs(os.path.join(meta_path, 'input'))
                     os.makedirs(os.path.join(meta_path, 'output'))
-                    input_files = []
-                    kinds = None
                     self.fetch_inputs(tempdir_path)
                     # TODO: when in local mode, must provide the sym link end point to the container,
                     # such that the symlink path leads the correct file while inside of the container
                     # input_files.append(os.path.basename(input_file))
-                    vols = ['/scratch', '/input', '/meta', '/output']
                     self.binds = {
                         '/scratch': {'bind': '/scratch', 'ro': True},
                         input_path: {'bind': '/input', 'ro': False},
@@ -120,14 +117,12 @@ class Engine(object):
                         self.activity = 'Failed'
                     else:
                         self.outputs = glob.glob(os.path.join(output_path, '*'))
-                        log.debug(self.outputs)
                         self.submit_results()
                         self.status = 'Done'
-                        self.activity = 'generated %s' % (str(self.outputs))
-                    self.update_job()
+                        self.activity = 'generated %s' % (str(map(os.path.basename, self.outputs)))
                     self.remove_app_container()
-
-            log.debug('job complete')
+            self.update_job()
+            log.info('JOB %6d - %s - %s/%s, %s %s' % (self.job['_id'], self.job['app_id'], self.job['group'], self.job['project'], self.status, self.activity))
 
     def check_in(self):
         """
@@ -155,7 +150,7 @@ class Engine(object):
         except ValueError:  # ValueEr = no json detected,
             pass
         else:
-            log.debug('JOB %6d - %s - %s/%s, %s %s' % (self.job['_id'], self.job['app_id'], self.job['group'], self.job['project'], 'EXAM.acq_no', 'DATETIME'))
+            log.info('JOB %6d - %s - %s/%s, %s %s' % (self.job['_id'], self.job['app_id'], self.job['group'], self.job['project'], self.status, self.activity))
 
     def fetch_app(self):
         """Prepare a docker image."""
@@ -205,9 +200,7 @@ class Engine(object):
             volumes=self.vols,
             command=self.command,
         )
-        log.info('prepared %s container, id %s' % (app_id, app_container['Id'][:12]))
         self.app_container_id = app_container['Id']  # dictionary describing container, maybe return less info?
-
         log.debug('starting container %s with host volumes %s' % (self.app_container_id, str(self.binds)))
         log.debug('job start at: ' + str(datetime.datetime.now()))
         self.docker_client.start(self.app_container_id, binds=self.binds)
@@ -262,7 +255,6 @@ class Engine(object):
         r = requests.put(route, files=files_info, data={'metadata': json.dumps(payload)}, headers=self.headers, cert=self.ssl_cert, verify=self.verify)
         if r.status_code != 200:
             raise EngineError('%d, %s' % (r.status_code, r.reason))
-        log.debug('upload success')
 
     def update_job(self):
         """Update a job."""
