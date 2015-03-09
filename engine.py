@@ -87,40 +87,45 @@ class Engine(object):
             if not self.image_id:
                 log.error('could not load or download app')
                 time.sleep(10)
-                self.status = 'failed'
+                self.status = 'Failed'
                 self.activity = 'could not load or download app %s' % self.job.get('app_id')
-                self.update_job()
-                raise EngineError('could not load or download app' %s % self.job.get('app_id'))
-
-            # download the files
-            with tempfile.TemporaryDirectory() as tempdir_path:
-                log.debug('workin in %s' % tempdir_path)
-                input_path = os.path.join(tempdir_path, 'input')
-                output_path = os.path.join(tempdir_path, 'output')
-                meta_path = os.path.join(tempdir_path, 'meta')
-                os.makedirs(input_path)
-                os.makedirs(output_path)
-                os.makedirs(os.path.join(meta_path, 'input'))
-                os.makedirs(os.path.join(meta_path, 'output'))
-                input_files = []
-                kinds = None
-                self.fetch_inputs(tempdir_path)
-                # TODO: when in local mode, must provide the sym link end point to the container,
-                # such that the symlink path leads the correct file while inside of the container
-                # input_files.append(os.path.basename(input_file))
-                vols = ['/scratch', '/input', '/meta', '/output']
-                self.binds = {
-                    '/scratch': {'bind': '/scratch', 'ro': True},
-                    input_path: {'bind': '/input', 'ro': False},
-                    output_path: {'bind': '/output', 'ro': False},
-                    meta_path: {'bind': '/meta', 'ro': False},
-                }
-                self.run_container()
-                self.outputs = glob.glob(os.path.join(output_path, '*'))
-                log.debug(self.outputs)
-                self.submit_results()
-                self.update_job()
-                self.remove_app_container()
+            else:
+                # download the files
+                with tempfile.TemporaryDirectory() as tempdir_path:
+                    log.debug('workin in %s' % tempdir_path)
+                    input_path = os.path.join(tempdir_path, 'input')
+                    output_path = os.path.join(tempdir_path, 'output')
+                    meta_path = os.path.join(tempdir_path, 'meta')
+                    os.makedirs(input_path)
+                    os.makedirs(output_path)
+                    os.makedirs(os.path.join(meta_path, 'input'))
+                    os.makedirs(os.path.join(meta_path, 'output'))
+                    input_files = []
+                    kinds = None
+                    self.fetch_inputs(tempdir_path)
+                    # TODO: when in local mode, must provide the sym link end point to the container,
+                    # such that the symlink path leads the correct file while inside of the container
+                    # input_files.append(os.path.basename(input_file))
+                    vols = ['/scratch', '/input', '/meta', '/output']
+                    self.binds = {
+                        '/scratch': {'bind': '/scratch', 'ro': True},
+                        input_path: {'bind': '/input', 'ro': False},
+                        output_path: {'bind': '/output', 'ro': False},
+                        meta_path: {'bind': '/meta', 'ro': False},
+                    }
+                    exit_code = self.run_container()
+                    if exit_code != 0:
+                        log.error('container had non-zero exit code, %d' % exit_code)
+                        self.status = 'Failed'
+                        self.activity = 'Failed'
+                    else:
+                        self.outputs = glob.glob(os.path.join(output_path, '*'))
+                        log.debug(self.outputs)
+                        self.submit_results()
+                        self.status = 'Done'
+                        self.activity = 'generated %s' % (str(self.outputs))
+                    self.update_job()
+                    self.remove_app_container()
 
             log.debug('job complete')
 
@@ -211,11 +216,7 @@ class Engine(object):
 
         exit_code = self.docker_client.wait(self.app_container_id, 1)  # possibly cannot mix/match multiple blocking iterators
         log.debug('job complete at: ' + str(datetime.datetime.now()))
-        if exit_code != 0:
-            log.error('container exited: %d' % exit_code)
-            raise EngineError('container had non-zero exit code, %d' % exit_code)
-        else:
-            return exit_code
+        return exit_code
 
     def submit_results(self):
         """Multipart form encoded submission."""
@@ -243,9 +244,6 @@ class Engine(object):
                 hash_.update(chunk)
                 hash_combined.update(chunk)
 
-            # TODO: need intelligent way to resolve these bits
-            kinds = []
-            type_ = ''
             fspec = {
                 'name': fname,
                 'ext': fext,
@@ -270,8 +268,8 @@ class Engine(object):
         """Update a job."""
         log.debug('updating job status')
         payload = {
-            'status': 'Done',
-            'activity': 'generated: %s' % ', '.join(map(os.path.basename, self.outputs)),
+            'status': self.status,
+            'activity': self.activity,
         }
         r = requests.put('%s/%s/%s' % (self.api_url, 'jobs', self.job.get('_id')), data=json.dumps(payload), headers=self.headers, cert=self.ssl_cert, verify=self.verify)
         if r.status_code != 200:
