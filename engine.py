@@ -78,6 +78,11 @@ class Engine(object):
 
     def run(self):
         while not self.halted:
+            # reset state and all that
+            self.job = None
+            self.image_id = None
+            self.status = None
+            self.activity = None
             self.check_in()         # sets self.job
             if not self.job:
                 log.debug('waiting for work')
