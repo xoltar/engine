@@ -308,6 +308,11 @@ if __name__ == '__main__':
 
     # docker client
     docker_client = docker.Client(args.docker_api)
+
+    # silence requests InsecureRequestWarning
+    requests.packages.urllib3.disable_warnings(requests.packages.urllib3.exceptions.InsecureRequestWarning)
+
+    # engine
     engine = Engine(args.api, args.engine_id, args.ssl_cert, docker_client, verify=not args.no_verify)
 
     # signal handling
