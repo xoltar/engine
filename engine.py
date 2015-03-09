@@ -247,9 +247,9 @@ class Engine(object):
             fspec = {
                 'name': fname,
                 'ext': fext,
-                'kinds': self.job.get('inputs')[0].get('payload').get('kinds'),    # get this from job spec
-                'state': ['derived', ],      # app must describe output state
-                'type': 'nifti',             # get the types from the output files. maybe nimsdata needs to support various text types too
+                'kinds': self.job.get('outputs')[0].get('payload').get('kinds'),    # get this from job spec
+                'state': self.job.get('outputs')[0].get('payload').get('state'),
+                'type': self.job.get('outputs')[0].get('payload').get('type'),
                 'sha1': hash_.hexdigest(),
                 'size': fsize,
             }
