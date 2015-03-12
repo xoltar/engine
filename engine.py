@@ -14,7 +14,7 @@ import logging
 logging.getLogger('requests').setLevel(logging.WARNING)
 logging.basicConfig(  # root logger
     level=logging.INFO,
-    format='[%(threadName)12s] %(asctime)s %(name)12.12s:%(levelname)4.4s %(message)s',
+    format='%(asctime)s %(name)12.12s:%(levelname)4.4s %(message)s',
     datefmt='%y-%m-%d %H:%M:%S',
 )
 log = logging.getLogger(__name__)
