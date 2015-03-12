@@ -122,9 +122,13 @@ class Engine(object):
                         self.activity = 'Failed'
                     else:
                         self.outputs = glob.glob(os.path.join(output_path, '*'))
-                        self.submit_results()
-                        self.status = 'Done'
-                        self.activity = 'generated %s' % (str(map(os.path.basename, self.outputs)))
+                        if self.outputs:
+                            self.submit_results()
+                            self.status = 'Done'
+                            self.activity = 'generated %s' % (str(map(os.path.basename, self.outputs)))
+                        else:
+                            self.status = 'Failed'
+                            self.activity = 'no files were generated'
                     self.remove_app_container()
             self.update_job()
             log.info('JOB %6d - %s - %s/%s, %s %s' % (self.job['_id'], self.job['app_id'], self.job['group'], self.job['project'], self.status, self.activity))
@@ -242,6 +246,10 @@ class Engine(object):
                 hash_.update(chunk)
                 hash_combined.update(chunk)
 
+            # if there are multiple files, the job spec needs to contain information
+            # about how to deal with the various possible output types.
+            # ex. how to differentiate between two possible output niftis
+            # ex. how to differentiate bween nifti, bvec and bval?
             fspec = {
                 'name': fname,
                 'ext': fext,
