@@ -131,7 +131,7 @@ class Engine(object):
                             self.activity = 'no files were generated'
                     self.remove_app_container()
             self.update_job()
-            log.info('JOB %6d - %s - %s/%s, %s %s' % (self.job['_id'], self.job['app_id'], self.job['group'], self.job['project'], self.status, self.activity))
+            log.info('JOB %6d - %s - %s/%s, %s %s' % (self.job['_id'], self.job['app']['_id'], self.job['group'], self.job['project']['name'], self.status, self.activity))
 
     def check_in(self):
         """
@@ -159,11 +159,12 @@ class Engine(object):
         except ValueError:  # ValueEr = no json detected,
             pass
         else:
-            log.info('JOB %6d - %s - %s/%s, %s %s' % (self.job['_id'], self.job['app_id'], self.job['group'], self.job['project'], self.status, self.activity))
+            log.debug(self.job)
+            log.info('JOB %6d - %s - %s/%s, %s %s' % (self.job['_id'], self.job['app']['_id'], self.job['group'], self.job['project']['name'], self.status, self.activity))
 
     def fetch_app(self):
         """Prepare a docker image."""
-        app_id = self.job.get('app_id')
+        app_id = self.job.get('app').get('_id')
         log.debug('checking for existing docker image, %s' % app_id)
         name, tag = app_id.split(':')
         candidates = self.docker_client.images(name=name)
@@ -202,7 +203,7 @@ class Engine(object):
 
     def run_container(self):
         self.vols = ['/input', '/output', '/meta', '/scratch'],
-        app_id = self.job.get('app_id')
+        app_id = self.job.get('app').get('_id')
         log.debug('creating %s container, with volumes %s' % (app_id, str(self.vols)))
         app_container = docker_client.create_container(
             image=app_id,
@@ -236,9 +237,7 @@ class Engine(object):
                 fext = '.nii.gz'
             else:
                 fname, fext = os.path.splitext(fn)
-
             hash_ = hashlib.sha1()      # hash of individual file
-
             finfo = {fn: (fn, open(f, 'rb'), 'application/octet-stream')}
             files_info.update(finfo)
             f = open(f, 'rb')
@@ -250,17 +249,29 @@ class Engine(object):
             # about how to deal with the various possible output types.
             # ex. how to differentiate between two possible output niftis
             # ex. how to differentiate bween nifti, bvec and bval?
+
+            # check the job spec for information about the
+            varietal_spec = None
+            for varietal in self.job.get('outputs'):
+                if fext == varietal.get('payload').get('fext'):
+                    varietal_spec = varietal.get('payload')
+                    log.debug('%s%s is type %s, kinds %s' % (fname, fext, varietal_spec.get('type'), varietal_spec.get('kinds')))
+                    break
+            else:
+                log.warning('%s extension %s did not any expected outputs' % (fname, fext))
+
             fspec = {
                 'name': fname,
                 'ext': fext,
-                'kinds': self.job.get('outputs')[0].get('payload').get('kinds'),    # get this from job spec
-                'state': self.job.get('outputs')[0].get('payload').get('state'),
-                'type': self.job.get('outputs')[0].get('payload').get('type'),
+                'kinds': varietal_spec.get('kinds'),    # get this from job spec
+                'state': varietal_spec.get('state'),
+                'type': varietal_spec.get('type'),
                 'sha1': hash_.hexdigest(),
                 'size': fsize,
             }
             files_spec.append(fspec)
         payload = {'files': files_spec}
+        log.debug(payload)
         headers = {'Content-MD5': hash_combined.hexdigest()}
         headers.update(self.headers)
         # TODO: should job output be a list? or will outputs always go to one destination?
