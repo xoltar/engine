@@ -85,7 +85,7 @@ class Engine(object):
             self.activity = None
             self.check_in()         # sets self.job
             if not self.job:
-                log.debug('waiting for work')
+                log.info('waiting for work')
                 time.sleep(10)  # no job
                 continue
             self.fetch_app()        # sets self.image_id
