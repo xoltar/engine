@@ -54,7 +54,7 @@ class Engine(object):
         # configuration shits
         self.api_url = api_url
         self._id = _id
-        self.headers = {'User-Agent': 'Scitran Engine %s' % self._id}
+        self.headers = {'User-Agent': 'SciTran Engine %s' % self._id}
         self.ssl_cert = ssl_cert
         self.docker_client = docker_client
         self.data_path = data_path
