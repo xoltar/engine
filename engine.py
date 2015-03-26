@@ -193,7 +193,7 @@ class Engine(object):
             if r.status_code != 200:
                 raise EngineError('%s, %s\n %s' % (r.status_code, r.reason, r.content))
 
-            fname = r.headers.get('content-disposition').replace('attachment; filename=', '')
+            fname = r.headers.get('Content-Disposition').replace('attachment; filename=', '')
             fpath = os.path.join(tempdir, 'input', fname)
             with open(fpath, 'wb') as f:
                 f.write(r.content)
