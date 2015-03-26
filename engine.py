@@ -49,7 +49,7 @@ class Engine(object):
 
     """Simple."""
 
-    def __init__(self, api_url, _id, ssl_cert, docker_client, verify=False, tempdir=None, local=False, data_path=None, query=None):
+    def __init__(self, api_url, _id, ssl_cert, docker_client, verify=False, tempdir=None, local=False, data_path=None, query=None, dnr=False):
         super(Engine, self).__init__()
         # configuration shits
         self.api_url = api_url
@@ -64,6 +64,7 @@ class Engine(object):
         self.group = None
         self.project = None
         self.verify = verify
+        self.dnr = dnr  # do not remove
 
         # state
         self.job = None
@@ -129,7 +130,8 @@ class Engine(object):
                         else:
                             self.status = 'Failed'
                             self.activity = 'no files were generated'
-                    self.remove_app_container()
+                    if not self.dnr:
+                        self.remove_app_container()
             self.update_job()
             log.info('JOB %6d - %s - %s/%s, %s %s' % (self.job['_id'], self.job['app']['_id'], self.job['group'], self.job['project']['name'], self.status, self.activity))
 
@@ -311,6 +313,7 @@ if __name__ == '__main__':
     ap.add_argument('--local_mode', help='local access to data (NFS/mount)', action='store_true', default=False)
     ap.add_argument('--data_path', help='local path to data, required if local_mode enabled.')
     ap.add_argument('--log_level', help='log level (default: info)', default='info')
+    ap.add_argument('--no_remove', help='do not remove containers after job stops.', action='store_true', default=False)
     args = ap.parse_args()
 
     # re-configure logging
@@ -332,7 +335,7 @@ if __name__ == '__main__':
     requests.packages.urllib3.disable_warnings(requests.packages.urllib3.exceptions.InsecureRequestWarning)
 
     # engine
-    engine = Engine(args.api, args.engine_id, args.ssl_cert, docker_client, verify=not args.no_verify)
+    engine = Engine(args.api, args.engine_id, args.ssl_cert, docker_client, verify=not args.no_verify, dnr=args.no_remove)
 
     # signal handling
     def term_handler(signum, stack):  # catch ^+U
