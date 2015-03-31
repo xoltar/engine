@@ -216,8 +216,8 @@ class Engine(object):
         log.debug('starting container %s with host volumes %s' % (self.app_container_id, str(self.binds)))
         log.debug('job start at: ' + str(datetime.datetime.now()))
         self.docker_client.start(self.app_container_id, binds=self.binds)
-        for l in self.docker_client.logs(self.app_container_id, stdout=True, stderr=False, stream=True, timestamps=False):
-            log.debug(l.strip('\n'))
+        # for l in self.docker_client.logs(self.app_container_id, stdout=True, stderr=False, stream=True, timestamps=False):
+        #    log.debug(l.strip('\n'))
 
         exit_code = self.docker_client.wait(self.app_container_id, 600)  # possibly cannot mix/match multiple blocking iterators
         log.debug('job complete at: ' + str(datetime.datetime.now()))
