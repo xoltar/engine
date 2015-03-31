@@ -219,7 +219,7 @@ class Engine(object):
         for l in self.docker_client.logs(self.app_container_id, stdout=True, stderr=False, stream=True, timestamps=False):
             log.debug(l.strip('\n'))
 
-        exit_code = self.docker_client.wait(self.app_container_id, 1)  # possibly cannot mix/match multiple blocking iterators
+        exit_code = self.docker_client.wait(self.app_container_id, 600)  # possibly cannot mix/match multiple blocking iterators
         log.debug('job complete at: ' + str(datetime.datetime.now()))
         return exit_code
 
