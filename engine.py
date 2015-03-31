@@ -223,62 +223,55 @@ class Engine(object):
         log.debug('job complete at: ' + str(datetime.datetime.now()))
         return exit_code
 
+
     def submit_results(self):
-        """Multipart form encoded submission."""
-        files_info = {}
-        files_spec = []
-        hash_combined = hashlib.sha1()  # hash of all files
+        """Multi part form encoded submission."""
+        log.debug('constructing multipart/form-encoded upload.')
+        form_data = {}
+        meta_data = []  # list of dicts
+        sha_data = []   # list of dicts
         for f in self.outputs:
-            log.debug('preparing %s for upload' % f)
-            fsize = os.path.getsize(f)
             fn = os.path.basename(f)
-            fname = None
-            fext = None
             if fn.endswith('.nii.gz'):
-                fname, _, _ = fn.rsplit('.', 2)  # split from the left most period
+                fname, _, _ = fn.rsplit('.', 2)
                 fext = '.nii.gz'
             else:
                 fname, fext = os.path.splitext(fn)
-            hash_ = hashlib.sha1()      # hash of individual file
-            finfo = {fn: (fn, open(f, 'rb'), 'application/octet-stream')}
-            files_info.update(finfo)
-            f = open(f, 'rb')
-            for chunk in iter(lambda: f.read(2**20), ''):
-                hash_.update(chunk)
-                hash_combined.update(chunk)
-
-            # if there are multiple files, the job spec needs to contain information
-            # about how to deal with the various possible output types.
-            # ex. how to differentiate between two possible output niftis
-            # ex. how to differentiate bween nifti, bvec and bval?
-
-            # check the job spec for information about the
-            varietal_spec = None
-            for varietal in self.job.get('outputs'):
+            hash_ = hashlib.sha1()
+            form_data.update({fn: (fn, open(f, 'rb'), 'application/octet-stream')})
+            with open(f, 'rb') as fd:
+                for chunk in iter(lambda: fd.read(2**20), ''):  # don't load the whole file at once
+                    hash_.update(chunk)
+            vspec = None
+            for varietal in self.job.get('outputs'):  # iterate over possible ouputs
                 if fext == varietal.get('payload').get('fext'):
-                    varietal_spec = varietal.get('payload')
-                    log.debug('%s%s is type %s, kinds %s' % (fname, fext, varietal_spec.get('type'), varietal_spec.get('kinds')))
-                    break
+                    vspec = varietal.get('payload')
+                    log.debug('%s%s is type: %s, kinds: %s' % (fname, fext, vspec.get('type'), vspec.get('kinds')))
+                    break  # use first match
             else:
-                log.warning('%s extension %s did not any expected outputs' % (fname, fext))
-
-            fspec = {
+                log.warning('%s%s extension did not match an expected output' % (fname, fext))
+            sha = hash_.hexdigest()
+            meta_data.append({
                 'name': fname,
                 'ext': fext,
-                'kinds': varietal_spec.get('kinds'),    # get this from job spec
-                'state': varietal_spec.get('state'),
-                'type': varietal_spec.get('type'),
-                'sha1': hash_.hexdigest(),
-                'size': fsize,
-            }
-            files_spec.append(fspec)
-        payload = {'files': files_spec}
-        log.debug(payload)
-        headers = {'Content-MD5': hash_combined.hexdigest()}
-        headers.update(self.headers)
-        # TODO: should job output be a list? or will outputs always go to one destination?
+                'kinds': vspec.get('kinds'),
+                'state': vspec.get('state'),
+                'type': vspec.get('type'),
+                'sha1': sha,
+                'size': os.path.getsize(f),
+                'flavor': 'file',
+            })
+            sha_data.append({'name': fname+fext, 'sha1': sha})
+        meta_json = json.dumps(meta_data)
+        sha_data.append({'metadata': hashlib.sha1(meta_json).hexdigest()})
+        sha_json = json.dumps(sha_data)
+        log.info(meta_json)
+        log.info(sha_json)
+        log.info(form_data)
+        form_data.update({'metadata': meta_json, 'sha': sha_json})
+
         route = '%s/%s' % (self.api_url, self.job.get('outputs')[0].get('url'))
-        r = requests.put(route, files=files_info, data={'metadata': json.dumps(payload)}, headers=self.headers, cert=self.ssl_cert, verify=self.verify)
+        r = requests.put(route, files=form_data, headers=self.headers, cert=self.ssl_cert, verify=self.verify)
         if r.status_code != 200:
             raise EngineError('%d, %s' % (r.status_code, r.reason))
 
