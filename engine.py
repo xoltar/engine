@@ -265,9 +265,6 @@ class Engine(object):
         meta_json = json.dumps(meta_data)
         sha_data.append({'metadata': hashlib.sha1(meta_json).hexdigest()})
         sha_json = json.dumps(sha_data)
-        log.info(meta_json)
-        log.info(sha_json)
-        log.info(form_data)
         form_data.update({'metadata': meta_json, 'sha': sha_json})
 
         route = '%s/%s' % (self.api_url, self.job.get('outputs')[0].get('url'))
