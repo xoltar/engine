@@ -6,9 +6,11 @@ import json
 import time
 import docker
 import hashlib
+import tarfile
 import requests
 import datetime
 import traceback
+import subprocess
 
 import logging
 logging.getLogger('requests').setLevel(logging.WARNING)
@@ -89,6 +91,7 @@ class Engine(object):
                 log.info('waiting for work')
                 time.sleep(10)  # no job
                 continue
+            self.job['app']['_id'] = 'scitran-apps-' + self.job['app']['_id']
             self.fetch_app()        # sets self.image_id
             if not self.image_id:
                 log.error('could not load or download app')
@@ -176,11 +179,30 @@ class Engine(object):
                 log.debug('docker image found. uid %s' % self.image_id)
                 break
         else:
+            iname = name.replace('scitran-apps-', '') + ':' + tag
             log.debug('docker image not found, requesting build context from API')
-            r = requests.get('%s/%s' % (self.api_url, 'apps'), headers=self.headers, cert=self.ssl_cert)
+            r = requests.get('%s/%s/%s/file' % (self.api_url, 'apps', iname), headers=self.headers, cert=self.ssl_cert)
             if r.status_code != 200:
-                log.debug('download and build image not implemented')
-            self.image_id = None
+                log.debug('download failed')
+            # TODO: docker-py-ize the build, don't use subprocess.
+            with tempfile.TemporaryDirectory() as tempdir_path:
+                build_target = os.path.join(tempdir_path, 'build_context.tgz')
+                print build_target
+                with open(build_target, 'wb') as build_context:
+                    build_context.write(r.content)
+                with tarfile.open(build_target) as tf:
+                    tf.extractall(path=tempdir_path)
+                for i in os.listdir(tempdir_path):
+                    target = os.path.join(tempdir_path, i)
+                    if os.path.isdir(target):
+                        build_dir = target
+                build_script = os.path.join(tempdir_path, build_dir, 'build.sh')  # expect build.sh
+                try:
+                    subprocess.check_call(build_script.split())
+                except subprocess.CalledProcessError:
+                    self.image_id = None
+                else:  # if build was succesfull, image should now exist.
+                    self.fetch_app()
 
     def fetch_inputs(self, tempdir):
         log.debug('fetching inputs...')
