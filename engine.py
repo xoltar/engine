@@ -12,6 +12,8 @@ import datetime
 import traceback
 import subprocess
 
+requests.packages.urllib3.disable_warnings()
+
 import logging
 logging.getLogger('requests').setLevel(logging.WARNING)
 logging.basicConfig(  # root logger
