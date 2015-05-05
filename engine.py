@@ -183,7 +183,7 @@ class Engine(object):
         else:
             iname = name.replace('scitran-apps-', '') + ':' + tag
             log.debug('docker image not found, requesting build context from API')
-            r = requests.get('%s/%s/%s/file' % (self.api_url, 'apps', iname), headers=self.headers, cert=self.ssl_cert)
+            r = requests.get('%s/%s/%s/file' % (self.api_url, 'apps', iname), headers=self.headers, cert=self.ssl_cert, verify=self.verify)
             if r.status_code != 200:
                 log.debug('download failed')
             # TODO: docker-py-ize the build, don't use subprocess.
