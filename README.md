@@ -18,3 +18,4 @@ The engine's ID must be registered with the API server.
 TODO: SDM interface should have a way of easily adding a new engine.
 - GET /api/engines          - returns list of engines
 - PUT /api/engines  + json  - adds the engine to the registered processors list
+*Update docs to say what a scitran-app is.* The scitran/api repo does not contain the information promised above.

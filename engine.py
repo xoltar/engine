@@ -44,18 +44,18 @@ class EngineError(Exception):
     """
 
     def __init__(self, message, log_level=None):
-        super(EngineError, self).__init__(message)
         if log_level is not None:
             message = '%s\n%s' % (message, traceback.format_exc())
+        super(EngineError, self).__init__(message)
 
 
 class Engine(object):
-
+    #TODO: Document
     """Simple."""
 
     def __init__(self, api_url, _id, ssl_cert, docker_client, verify=False, tempdir=None, local=False, data_path=None, query=None, dnr=False):
         super(Engine, self).__init__()
-        # configuration shits
+        # configuration
         self.api_url = api_url
         self._id = _id
         self.headers = {'User-Agent': 'SciTran Engine %s' % self._id}
@@ -76,9 +76,10 @@ class Engine(object):
         self.status = None      # percent complete?
         self.activity = None    # name of stage, any sort of string feedback
         self.halted = False
+        self.outputs = []       # job output
 
     def halt(self):
-        log.info('Engine recieved halt - stopping')
+        log.info('Engine received halt - stopping')
         self.halted = True
 
     def run(self):
@@ -103,7 +104,7 @@ class Engine(object):
             else:
                 # download the files
                 with tempfile.TemporaryDirectory() as tempdir_path:
-                    log.debug('workin in %s' % tempdir_path)
+                    log.debug('working in %s' % tempdir_path)
                     input_path = os.path.join(tempdir_path, 'input')
                     output_path = os.path.join(tempdir_path, 'output')
                     meta_path = os.path.join(tempdir_path, 'meta')
@@ -112,7 +113,7 @@ class Engine(object):
                     os.makedirs(os.path.join(meta_path, 'input'))
                     os.makedirs(os.path.join(meta_path, 'output'))
                     self.fetch_inputs(tempdir_path)
-                    # TODO: when in local mode, must provide the sym link end point to the container,
+                    # TODO: when in local mode, must provide the symlink end point to the container,
                     # such that the symlink path leads the correct file while inside of the container
                     # input_files.append(os.path.basename(input_file))
                     self.binds = {
